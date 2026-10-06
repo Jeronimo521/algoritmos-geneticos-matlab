@@ -1,0 +1,918 @@
+\documentclass[conference]{IEEEtran}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath,booktabs,array,longtable,listings}
+\usepackage{xurl}
+\usepackage[hidelinks]{hyperref}
+\lstset{basicstyle=\ttfamily\scriptsize,breaklines=true,columns=fullflexible,keepspaces=true,aboveskip=3pt,belowskip=5pt}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\floatsep}{6pt plus 2pt minus 2pt}
+\setlength{\intextsep}{6pt plus 2pt minus 2pt}
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{5}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.75}
+\title{Práctica de algoritmos genéticos en tres problemas de optimización}
+\author{\IEEEauthorblockN{Jerónimo Vallejo Castro}\IEEEauthorblockA{Facultad de Ingenierías\\Universidad Católica de Oriente\\Bioingeniería, Unidad 3}}
+\begin{document}
+\maketitle
+\raggedbottom
+\begin{abstract}
+En esta práctica programamos un algoritmo genético en MATLAB para resolver el problema del viajero, la función Ackley modificada y un modelo de inventarios de cinco artículos. Para cada caso comparamos tres métodos de selección y después estudiamos el número de iteraciones y la mutación. También variamos el número de dimensiones de Ackley. Cada configuración se ejecutó cinco veces para comparar el promedio de los resultados y su variación. En las pruebas iniciales escogimos torneo para el viajero y elitismo para Ackley e inventarios. La mutación ayudó en los tres problemas, aunque su efecto cambió según la probabilidad y la magnitud utilizadas. Los resultados muestran que una misma configuración no funciona igual para todos los casos.
+\end{abstract}
+\begin{IEEEkeywords}
+Algoritmo genético, selección, cruce, mutación, viajero, Ackley, inventarios.
+\end{IEEEkeywords}
+
+\section{Introducción}
+Encontrar una buena solución de un problema de optimización puede resultar difícil cuando hay muchas combinaciones posibles o cuando las variables están relacionadas por restricciones. En estos casos, un algoritmo genético permite explorar distintas soluciones a partir de una población inicial y mejorarla mediante selección, cruce y mutación \cite{ref1}.
+
+El propósito de esta práctica es implementar esas etapas y observar cómo cambian los resultados al modificar sus parámetros. Trabajamos con tres problemas de la guía \cite{ref8}: reducir el tiempo de un recorrido entre 13 ubicaciones, minimizar la función Ackley modificada y reducir los pedidos no atendidos en un inventario. El primero utiliza rutas, mientras que los otros dos utilizan variables reales. Esto obliga a ajustar los operadores a la forma de representar cada solución.
+
+Además de obtener un buen resultado, buscamos comparar el comportamiento de las pruebas. Por eso registramos el tiempo, el mejor individuo, el valor de la función objetivo y la variación entre cinco ejecuciones. El informe presenta primero el procedimiento y luego los resultados de cada problema, siguiendo el orden de selección, iteraciones y mutación.
+
+\section{Marco teórico}
+\subsection{Etapas del algoritmo genético}
+Cada individuo representa una posible solución. La población inicial se genera aleatoriamente y se evalúa con la función objetivo. La selección escoge los padres; el cruce combina su información para producir hijos, y la mutación modifica algunos hijos al azar. Al repetir estas etapas se obtiene una nueva población en cada generación. En esta práctica todas las funciones se minimizan: un valor menor significa una mejor solución.
+
+\subsection{Métodos de selección}
+La selección influye en la calidad de los individuos conservados y en la diversidad de la población \cite{ref2}. En elitismo se ordenan los individuos por su función objetivo y se escoge la mejor mitad. En torneo se forman grupos aleatorios de cuatro individuos y se conservan los dos mejores de cada grupo. Los participantes no se repiten entre grupos. En ruleta, la probabilidad de escoger el individuo $i$ es
+\begin{equation}
+ p_i=\frac{1/f_i}{\sum_{j=1}^{N}1/f_j}.
+\end{equation}
+Así, los valores pequeños tienen más probabilidad de selección. La ruleta permite escoger un individuo varias veces. Esta expresión se utiliza porque los objetivos de los tres problemas son positivos.
+
+\subsection{Cruce y mutación}
+El cruce debe generar soluciones válidas. Para Ackley usamos una combinación aritmética de los padres \cite{ref3}. Para una ruta, no se pueden repetir ni perder ciudades; por eso utilizamos OX \cite{ref4}. En inventarios usamos cruce uniforme \cite{ref7} y luego corregimos las variables que incumplan las restricciones. La mutación intercambia dos ciudades en el viajero o modifica una variable real en Ackley e inventarios. Su probabilidad indica qué tan frecuente se aplica; su magnitud indica qué tan grande puede ser el cambio.
+
+\section{Metodología}
+\subsection{Implementación en MATLAB}
+Programamos las funciones de población inicial, evaluación, selección, cruce y mutación por separado. La función \texttt{algoritmoGenetico} las conecta en este orden:
+\begin{enumerate}
+\item Generar 100 individuos y evaluar la población inicial.
+\item Escoger 50 padres con el método de selección indicado.
+\item Mezclar el orden de los padres y formar parejas para producir 50 hijos.
+\item Aplicar la mutación a los hijos y comprobar que sean válidos.
+\item Unir los 50 padres y los 50 hijos, evaluar la nueva población y guardar la mejor solución encontrada.
+\item Repetir hasta completar el número de iteraciones establecido.
+\end{enumerate}
+El mejor resultado se guarda por separado para no perderlo si una generación posterior empeora. Esa solución guardada no se agrega de nuevo a la población. El ciclo se programó directamente, sin utilizar la función \texttt{ga} de MATLAB.
+
+\subsection{Representación de los problemas}
+\paragraph{Viajero}
+Un individuo es una permutación de los números del 1 al 13. Su costo es la suma de los tiempos entre ciudades consecutivas, usando la matriz de la Tabla I de la guía. Se conserva el sentido de cada desplazamiento porque la matriz no es simétrica. Trabajamos con una ruta abierta y sin ciudad inicial fija; no se suma el regreso al inicio. Como comprobación, la ruta ordenada $[1,\ldots,13]$ produce 641 minutos.
+
+El cruce OX copia un segmento de un padre y completa las posiciones restantes con el orden circular del otro, sin repetir ciudades. La mutación intercambia dos posiciones diferentes. Ambos operadores conservan las 13 ciudades. Si se activa el regreso a UCO, también se debe fijar UCO como primera ciudad; el algoritmo rechaza la combinación incompatible. Esta opción no se utilizó en las tablas de rutas abiertas.
+
+\paragraph{Ackley}
+Partimos de la función de Ackley \cite{ref5} y usamos la modificación indicada en la guía. Para $d$ dimensiones evaluamos:
+\begin{equation}
+\begin{split}
+f(\mathbf{x})={}&-20\exp\left(-0.2\sqrt{\frac{1}{d}\sum_{i=1}^{d}x_i^2}\right)\\
+&-\exp\left(\frac{1}{d}\sum_{i=1}^{d}\cos(2\pi x_i)\right)+23.
+\end{split}
+\end{equation}
+Cada coordenada está entre $-10$ y $10$. El mínimo se alcanza en el vector cero y vale $3-e\approx0.2817181715$, por la modificación de la guía. Para cruzar dos padres elegimos un número $a$ entre cero y uno y calculamos $h_1=a p_1+(1-a)p_2$ y $h_2=(1-a)p_1+a p_2$. Si un hijo muta, elegimos una coordenada, sumamos una perturbación normal y limitamos el resultado a su intervalo.
+
+\paragraph{Inventarios}
+La gestión de inventarios estudia las decisiones de reabastecimiento y stock de seguridad \cite{ref6}. La práctica adapta el modelo de superficies de política óptima de Gardner y Dannenbring \cite{ref9}, utilizado con algoritmos genéticos por Chen y colaboradores \cite{ref10}. En el modelo de la guía, Q es el monto de compra, S es el stock de seguridad y K es el valor de demanda definido por la empresa; el punto de reposición es R=S+K. Cada solución contiene los vectores Q, S y K de cinco artículos, con los datos de la Tabla II de la guía. Los montos se expresan en miles de pesos colombianos. El presupuesto debe cumplir
+\begin{equation}
+\sum_{i=1}^{5}\left(\frac{Q_i}{2}+S_i\right)=8000.
+\end{equation}
+Para mantener esa igualdad almacenamos 14 variables: $Q_1$ a $Q_4$, los cinco $S_i$ y los cinco $K_i$. Calculamos la restante mediante
+\begin{equation}
+Q_5=2\left(8000-\sum_{i=1}^{5}S_i\right)-\sum_{i=1}^{4}Q_i.
+\end{equation}
+Los límites de S y K son los de la guía. Para Q se usa un mínimo numérico de $10^{-6}$, porque debe ser positivo, y un máximo de 16000 deducido del presupuesto.
+
+En la población inicial repartimos el monto disponible entre los cinco Q mediante pesos positivos. El cruce uniforme decide al azar de cuál padre toma cada variable. Después del cruce y la mutación limitamos S y K a sus rangos. Si $Q_5$ queda por debajo del mínimo, reducimos proporcionalmente $Q_1$ a $Q_4$. Así se conserva el presupuesto sin descartar toda la solución.
+
+\subsection{Evaluación del modelo de inventarios}
+Para cada artículo definimos $R_i=S_i+K_i$ y $z_i=(R_i-\mu_i)/\sigma_i$. La falta esperada de una variable normal se puede calcular como
+\begin{equation}
+L_i=\sigma_i\phi(z_i)+(\mu_i-R_i)\bigl[1-\Phi(z_i)\bigr],
+\end{equation}
+donde $\phi$ y $\Phi$ son la densidad y la distribución normal estándar. La función objetivo es
+\begin{equation}
+Z=\sum_{i=1}^{5}\frac{D_iL_i}{Q_i m_i}.
+\end{equation}
+En MATLAB calculamos la cola normal con \texttt{erfc}. Esto evita repetir una integración numérica para cada individuo. Comprobamos la fórmula contra \texttt{integral} en 20 soluciones y ambas evaluaciones coincidieron dentro de la tolerancia usada.
+
+La ecuación 8 impresa en la guía muestra el denominador $\sqrt{2\pi\sigma_i}$. Para estas pruebas usamos $\sigma_i\sqrt{2\pi}$, que corresponde a una densidad normal normalizada; su integral sobre toda la recta real vale uno. El código incluye la opción \texttt{literal} para evaluar la expresión impresa; esa opción cambia el objetivo y exigiría repetir las pruebas. Esta decisión se basa en que $\sigma_i$ representa la desviación estándar y en que la ecuación 7 de la guía utiliza una densidad de probabilidad. La expresión literal tiene masa total $\sqrt{\sigma_i}$ y pondera de manera distinta cada artículo; por tanto, no es un simple cambio de escala común.
+
+La forma cerrada se obtiene al sustituir $u=(x-\mu_i)/\sigma_i$ en
+\begin{equation}
+L_i=\int_{R_i}^{\infty}(x-R_i)\,
+\frac{e^{-(x-\mu_i)^2/(2\sigma_i^2)}}{\sigma_i\sqrt{2\pi}}\,dx.
+\end{equation}
+Así, $L_i=\sigma_i\int_{z_i}^{\infty}u\phi(u)\,du+(\mu_i-R_i)\int_{z_i}^{\infty}\phi(u)\,du$. Usando $\phi'(u)=-u\phi(u)$ se obtiene la ecuación de falta esperada anterior. Esto justifica el cálculo analítico y su comparación con la integración numérica.
+
+\subsection{Organización de las pruebas}
+Primero comparamos elitismo, torneo y ruleta con 100 iteraciones, probabilidad de mutación $P_m=0.20$ y magnitud $m=0.05$. Ackley se estudió inicialmente con tres dimensiones. Escogimos la selección con menor promedio de las cinco pruebas.
+
+Después probamos 10, 20, 30, 50, 100, 150 y 200 iteraciones. Para escoger una cantidad práctica, tomamos la menor cuyo indicador quedara a no más del 5\% del mejor del estudio: el promedio de la función objetivo para viajero e inventarios y el RMSE para Ackley. Este criterio acepta una pequeña diferencia de calidad para reducir el tiempo.
+
+Con las iteraciones elegidas comparamos $P_m=0$, $0.05$, $0.20$, $0.50$ y $0.80$. En los problemas continuos probamos magnitudes de 0.01 y 0.05; cuando $P_m=0$ se evalúa una sola magnitud, manteniendo cinco ejecuciones con semillas distintas. Aunque no haya mutación, la población inicial, la selección y el cruce siguen siendo aleatorios. La desviación de la perturbación normal es la magnitud multiplicada por el rango de la variable. La probabilidad se aplica por hijo y, si este muta, se modifica una sola variable antes de reparar las restricciones. En el viajero la mutación siempre consiste en un intercambio, por lo que solo variamos la probabilidad.
+
+Finalmente evaluamos Ackley con 2, 3, 10, 20, 50 y 100 dimensiones. En total ejecutamos 59 configuraciones con cinco repeticiones cada una: 295 corridas en MATLAB R2026a, plataforma PCWIN64. Los resultados de las tablas corresponden a una ejecución completa con calentamiento previo por configuración, fuera del tiempo medido. Cada corrida medida reinicia su semilla, de modo que el calentamiento no modifica la población inicial. La versión, la plataforma, la fecha y la normalización de inventarios quedan registradas en \texttt{entorno.csv}.
+
+\subsection{Estadísticas y comprobaciones}
+Si $f_r$ es el mejor objetivo de la repetición $r$, calculamos el promedio y la desviación estándar muestral con
+\begin{equation}
+\bar f=\frac{1}{5}\sum_{r=1}^{5}f_r,\qquad
+s=\sqrt{\frac{1}{4}\sum_{r=1}^{5}(f_r-\bar f)^2}.
+\end{equation}
+Para Ackley también calculamos el error respecto al mínimo conocido:
+\begin{equation}
+\mathrm{RMSE}=\sqrt{\frac{1}{5}\sum_{r=1}^{5}\left[f_r-(3-e)\right]^2}.
+\end{equation}
+Las tablas resumen muestran esos indicadores, el mejor objetivo de las cinco pruebas y el tiempo promedio. Los códigos C01 a C59 relacionan cada fila con el individuo del anexo incluido al final del informe. Cada fila resume cinco ejecuciones de la misma configuración. En los encabezados, $t$ es el tiempo medio, $f_{\min}$ es el mejor objetivo, $\bar f$ es el promedio y $s$ es la desviación estándar. En las tablas de mutación continua, $P_m/m$ indica probabilidad y magnitud, respectivamente. El tiempo es el promedio de los cinco tiempos, y el mejor valor y su individuo pertenecen a una misma corrida. La función \texttt{experimentos} guarda los resultados individuales en \texttt{corridas.csv}.
+
+Usamos cinco semillas distintas por problema y las reutilizamos entre configuraciones. Cuando la dimensión coincide, esto permite empezar con las mismas poblaciones. La semilla es $20261005+1000p+r$, con $p=1,2,3$ para viajero, Ackley e inventarios, y $r=1,\ldots,5$. Los tiempos incluyen la inicialización, la evaluación y las comprobaciones; no incluyen la elaboración del informe. Antes de analizar las tablas verificamos los objetivos, los límites, las rutas y el presupuesto de las soluciones guardadas.
+
+
+\subsection{Medición del tiempo}
+Antes de las cinco repeticiones medidas se ejecutó una corrida completa de calentamiento para cada configuración. El tiempo de cada repetición incluye la población inicial, la evaluación, las comprobaciones y las generaciones; excluye el calentamiento y la escritura de resultados. Además de la media, se calcula la desviación estándar muestral de los tiempos. La igualdad de resultados entre configuraciones repetidas no implica tiempos idénticos: influyen la carga del equipo y la ejecución interna de MATLAB. Por eso la selección de iteraciones utiliza principalmente el criterio de calidad del 5\%, y los tiempos son observaciones de esta ejecución, no garantías de rendimiento.
+
+\begin{table}[!htbp]
+\centering\footnotesize
+\setlength{\tabcolsep}{4pt}
+\caption{Variabilidad temporal del estudio de selección.}
+\begin{tabular}{@{}llrr@{}}
+\toprule
+ID & Problema & $\bar t$ (s) & $s_t$ (s) \\
+\midrule
+C01 & viajero & 0.16149 & 0.019188 \\
+C02 & viajero & 0.15944 & 0.015973 \\
+C03 & viajero & 0.14364 & 0.004373 \\
+C16 & ackley & 0.054618 & 0.0053296 \\
+C17 & ackley & 0.055856 & 0.0061713 \\
+C18 & ackley & 0.046254 & 0.0043365 \\
+C41 & inventario & 0.2697 & 0.036488 \\
+C42 & inventario & 0.27104 & 0.0074684 \\
+C43 & inventario & 0.25477 & 0.011603 \\
+\bottomrule
+\end{tabular}
+\end{table}
+La dispersión temporal de las 59 configuraciones puede consultarse en la columna \texttt{tiempo\_desviacion\_s} de \texttt{resumen\_completo.csv}.
+
+\section{Resultados}
+\subsection{Problema del viajero}
+\subsubsection{Estudio del método de selección}
+En cada método realizamos cinco pruebas de 100 iteraciones. La tabla compara el tiempo medio, el mejor costo, el promedio y la desviación de las cinco ejecuciones. El costo está expresado en minutos; la ruta de cada mejor resultado se identifica con su código en el anexo de mejores individuos.
+
+\begin{table}[!htbp]
+\centering\footnotesize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.08}
+\caption{Selección en el problema del viajero.}
+\label{tab:seleccion-viajero}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+ID & Método & $t$ (s) & $f_{\min}$ & $\bar f$ & $s$ \\
+\midrule
+C01 & elitismo & 0.1615 & 417 & 431.4 & 9.127 \\
+C02 & torneo & 0.1594 & 418 & 427.8 & 7.43 \\
+C03 & ruleta & 0.1436 & 451 & 485 & 24.69 \\
+\bottomrule
+\end{tabular}
+\end{table}
+El torneo obtuvo el menor promedio, con 427.8 minutos, y una desviación de 7.43. El elitismo produjo una ruta de 417 minutos, mejor que la mejor ruta del torneo, pero su promedio fue 431.4. Escogimos torneo porque nuestro criterio compara las cinco pruebas y no solo la mejor de ellas. La ruleta tuvo el promedio más alto, 485 minutos, y también la mayor variación.
+\subsubsection{Estudio del número de iteraciones}
+Conservamos torneo y los demás parámetros iniciales para observar el efecto de aumentar las iteraciones.
+\begin{table}[!htbp]
+\centering\footnotesize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.08}
+\caption{Número de iteraciones en el problema del viajero.}
+\label{tab:iteraciones-viajero}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+ID & Iter. & $t$ (s) & $f_{\min}$ & $\bar f$ & $s$ \\
+\midrule
+C04 & 10 & 0.01855 & 471 & 494.8 & 14.81 \\
+C05 & 20 & 0.03088 & 427 & 452.2 & 14.86 \\
+C06 & 30 & 0.04511 & 427 & 437.8 & 7.855 \\
+C07 & 50 & 0.08764 & 418 & 429.4 & 7.765 \\
+C08 & 100 & 0.1514 & 418 & 427.8 & 7.43 \\
+C09 & 150 & 0.2294 & 418 & 427.8 & 7.43 \\
+C10 & 200 & 0.3307 & 418 & 427.8 & 7.43 \\
+\bottomrule
+\end{tabular}
+\end{table}
+La mayor reducción del costo ocurrió entre 10 y 50 iteraciones. El promedio bajó de 494.8 a 429.4 minutos. Con 100 iteraciones llegó a 427.8 y no cambió al aumentar a 150 o 200. En estas pruebas, continuar después de 100 iteraciones aumentó el tiempo sin mejorar el mejor resultado guardado.
+
+Escogimos 30 iteraciones con el criterio del 5\%: su promedio de 437.8 está a un 2.34\% del menor promedio observado. El tiempo medio fue 0.0451116 segundos, frente a 0.330668 segundos con 200 iteraciones. Si se priorizara únicamente el costo del recorrido, sería razonable conservar 100; aquí dimos peso al tiempo de ejecución.
+\subsubsection{Análisis de la mutación}
+Mantuvimos torneo y 30 iteraciones, y variamos la probabilidad del intercambio de ciudades.
+\begin{table}[!htbp]
+\centering\footnotesize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.08}
+\caption{Mutación en el problema del viajero.}
+\label{tab:mutacion-viajero}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+ID & $P_m$ & $t$ (s) & $f_{\min}$ & $\bar f$ & $s$ \\
+\midrule
+C11 & 0 & 0.04772 & 435 & 452.2 & 14.39 \\
+C12 & 0.05 & 0.04843 & 440 & 444.6 & 5.413 \\
+C13 & 0.2 & 0.05124 & 427 & 437.8 & 7.855 \\
+C14 & 0.5 & 0.05477 & 426 & 438.2 & 8.289 \\
+C15 & 0.8 & 0.05837 & 445 & 457.8 & 11.56 \\
+\bottomrule
+\end{tabular}
+\end{table}
+Sin mutación obtuvimos un promedio de 452.2 minutos. Con $P_m=0.20$ bajó a 437.8, el menor de este estudio. Una probabilidad de 0.50 dio un promedio muy cercano, 438.2, mientras que con 0.80 subió a 457.8. El intercambio ayudó con probabilidades intermedias, pero aplicarlo con más frecuencia no mejoró el resultado. Para las siguientes ejecuciones conservamos $P_m=0.20$.
+
+La mejor ruta encontrada entre todos los estudios fue la de C01:
+\begin{lstlisting}
+[13 12 10 6 7 3 9 4 2 1 5 8 11]
+\end{lstlisting}
+Su tiempo fue 417 minutos. Corresponde al recorrido Guatapé, El Peñol, San Vicente, Guarne, El Retiro, La Ceja, La Unión, El Carmen, Rionegro, UCO, Marinilla, Santuario y Cocorná. Es la mejor ruta observada en nuestras pruebas; no comprobamos que sea el mínimo global.
+\subsection{Función Ackley}
+\subsubsection{Estudio del método de selección}
+Comparamos los métodos con tres dimensiones y cinco ejecuciones por método. Además del objetivo y el tiempo medio, usamos el RMSE para medir qué tan cerca quedó el conjunto de las pruebas de $3-e$. Los vectores de las mejores soluciones aparecen en el anexo de mejores individuos.
+
+\begin{table}[!htbp]
+\centering\footnotesize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.08}
+\caption{Selección en Ackley.}
+\label{tab:seleccion-ackley}
+\begin{tabular}{@{}llrrrrr@{}}
+\toprule
+ID & Método & $t$ (s) & $f_{\min}$ & $\bar f$ & $s$ & RMSE \\
+\midrule
+C16 & elitismo & 0.05462 & 0.282069 & 0.28461 & 0.001972 & 0.003387 \\
+C17 & torneo & 0.05586 & 0.281759 & 0.290975 & 0.01031 & 0.01307 \\
+C18 & ruleta & 0.04625 & 0.291802 & 0.304958 & 0.01337 & 0.02613 \\
+\bottomrule
+\end{tabular}
+\end{table}
+El elitismo tuvo el menor promedio, 0.284610, y el menor RMSE, 0.003387. También presentó menos variación que los otros métodos. El torneo encontró una solución individual más cercana al mínimo, pero sus otras ejecuciones elevaron el promedio a 0.290975. La ruleta tuvo el mayor error. Los tiempos medios de esta comparación deben interpretarse junto con su variabilidad, sin asumir que un método sea siempre más rápido. Escogimos elitismo por la calidad del conjunto de las cinco pruebas.
+\subsubsection{Estudio del número de iteraciones}
+Con elitismo repetimos las pruebas para las siete cantidades de iteraciones.
+\begin{table}[!htbp]
+\centering\footnotesize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.08}
+\caption{Número de iteraciones en Ackley.}
+\label{tab:iteraciones-ackley}
+\begin{tabular}{@{}llrrrrr@{}}
+\toprule
+ID & Iter. & $t$ (s) & $f_{\min}$ & $\bar f$ & $s$ & RMSE \\
+\midrule
+C19 & 10 & 0.004977 & 0.403557 & 0.709589 & 0.4957 & 0.6162 \\
+C20 & 20 & 0.01058 & 0.283243 & 0.290667 & 0.00533 & 0.01014 \\
+C21 & 30 & 0.01223 & 0.282202 & 0.287022 & 0.004825 & 0.006838 \\
+C22 & 50 & 0.02076 & 0.28207 & 0.28629 & 0.004763 & 0.006249 \\
+C23 & 100 & 0.03819 & 0.282069 & 0.28461 & 0.001972 & 0.003387 \\
+C24 & 150 & 0.06283 & 0.282069 & 0.284399 & 0.001845 & 0.003147 \\
+C25 & 200 & 0.0908 & 0.282069 & 0.284085 & 0.001872 & 0.002899 \\
+\bottomrule
+\end{tabular}
+\end{table}
+De 10 a 20 iteraciones el RMSE bajó de 0.6162 a 0.01014. Después la mejora fue más lenta, pero continuó hasta llegar a 0.002899 con 200 iteraciones. El RMSE de 150 iteraciones, 0.003147, queda por encima del margen del 5\% respecto al menor. Por eso escogimos 200 iteraciones. En este caso fue necesario usar la mayor cantidad ensayada para cumplir el criterio, con un tiempo medio de 0.0908017 segundos.
+\subsubsection{Análisis de la mutación}
+En esta etapa conservamos elitismo y 200 iteraciones. Comparamos tanto la probabilidad como el tamaño de la perturbación.
+\begin{table}[!htbp]
+\centering\footnotesize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.08}
+\caption{Mutación en Ackley.}
+\label{tab:mutacion-ackley}
+\begin{tabular}{@{}llrrrrr@{}}
+\toprule
+ID & $P_m/m$ & $t$ (s) & $f_{\min}$ & $\bar f$ & $s$ & RMSE \\
+\midrule
+C26 & 0 / -- & 0.08349 & 0.282293 & 0.425134 & 0.2302 & 0.251 \\
+C27 & 0.05 / 0.01 & 0.07578 & 0.281719 & 0.287356 & 0.007891 & 0.009033 \\
+C28 & 0.05 / 0.05 & 0.07424 & 0.281934 & 0.288075 & 0.01133 & 0.01196 \\
+C29 & 0.2 / 0.01 & 0.07566 & 0.281828 & 0.283465 & 0.001659 & 0.002292 \\
+C30 & 0.2 / 0.05 & 0.07689 & 0.282069 & 0.284085 & 0.001872 & 0.002899 \\
+C31 & 0.5 / 0.01 & 0.07557 & 0.281768 & 0.282003 & 0.0003223 & 0.0004049 \\
+C32 & 0.5 / 0.05 & 0.08244 & 0.282006 & 0.283128 & 0.0008711 & 0.001611 \\
+C33 & 0.8 / 0.01 & 0.07249 & 0.28172 & 0.281887 & 0.0001974 & 0.0002445 \\
+C34 & 0.8 / 0.05 & 0.07934 & 0.281763 & 0.28248 & 0.000681 & 0.0009753 \\
+\bottomrule
+\end{tabular}
+\end{table}
+Sin mutación el promedio fue 0.425134 y la desviación 0.2302. Esto muestra que algunas ejecuciones quedaron bastante más lejos del mínimo que otras. Con $P_m=0.80$ y $m=0.01$ el promedio bajó a 0.281887 y el RMSE a 0.0002445. Esa fue la configuración escogida.
+
+Al comparar una misma probabilidad, la magnitud de 0.01 dio mejores promedios que la de 0.05 en todos los casos ensayados. Como el rango de Ackley es 20, esas magnitudes representan desviaciones de 0.2 y 1.0 en la coordenada que muta. Los cambios pequeños permitieron acercarse más al mínimo. La mejor corrida aislada apareció en C27, con $f=0.281718763982$, aunque su promedio fue peor que el de C33. De nuevo, la elección por promedio difiere de la elección por un solo resultado.
+\subsubsection{Estudio del número de dimensiones}
+Usamos elitismo, 200 iteraciones, $P_m=0.80$ y $m=0.01$ para aumentar la dimensión sin cambiar la población de 100 individuos.
+\begin{table}[!htbp]
+\centering\footnotesize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.08}
+\caption{Número de dimensiones en Ackley.}
+\label{tab:dimensiones-ackley}
+\begin{tabular}{@{}llrrrrr@{}}
+\toprule
+ID & $d$ & $t$ (s) & $f_{\min}$ & $\bar f$ & $s$ & RMSE \\
+\midrule
+C35 & 2 & 0.07333 & 0.281718 & 0.28173 & 2.547e-05 & 2.548e-05 \\
+C36 & 3 & 0.0756 & 0.28172 & 0.281887 & 0.0001974 & 0.0002445 \\
+C37 & 10 & 0.07695 & 0.287331 & 1.5323 & 1.184 & 1.638 \\
+C38 & 20 & 0.08326 & 2.29215 & 2.65072 & 0.4179 & 2.398 \\
+C39 & 50 & 0.1279 & 2.65358 & 3.25544 & 0.4733 & 3.004 \\
+C40 & 100 & 0.182 & 3.69897 & 4.05422 & 0.2605 & 3.78 \\
+\bottomrule
+\end{tabular}
+\end{table}
+Con dos y tres dimensiones obtuvimos valores cercanos al mínimo. A partir de diez dimensiones aumentaron el promedio y el RMSE. En diez dimensiones la mejor corrida llegó a 0.287331, pero el promedio fue 1.5323: ese buen resultado individual no se repitió en todas las pruebas. Con cien dimensiones el promedio fue 4.05422 y el RMSE 3.780.
+
+El mínimo teórico sigue siendo $3-e$ para todas las dimensiones. Lo que cambia es la dificultad de explorarlo con el mismo número de individuos e iteraciones. Además, la mutación modifica una sola coordenada, de modo que cada coordenada tiene menos oportunidades de cambio al aumentar la dimensión. Estas pruebas muestran la limitación de conservar los mismos parámetros para problemas más grandes.
+\subsection{Optimización de inventarios}
+\subsubsection{Estudio del método de selección}
+Ejecutamos cinco pruebas de 100 iteraciones por método. La tabla compara los resultados del conjunto de ejecuciones, y los códigos remiten a los individuos del anexo de mejores individuos. Las comprobaciones del presupuesto se hicieron con los valores completos guardados en MATLAB.
+
+\begin{table}[!htbp]
+\centering\footnotesize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.08}
+\caption{Selección en inventarios.}
+\label{tab:seleccion-inventario}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+ID & Método & $t$ (s) & $f_{\min}$ & $\bar f$ & $s$ \\
+\midrule
+C41 & elitismo & 0.2697 & 336.329 & 338.471 & 2.19 \\
+C42 & torneo & 0.271 & 337.4 & 342.191 & 5.315 \\
+C43 & ruleta & 0.2548 & 402.377 & 454.471 & 61.33 \\
+\bottomrule
+\end{tabular}
+\end{table}
+El elitismo obtuvo el menor promedio, 338.471, y una desviación de 2.190. El torneo dio un promedio cercano, 342.191, con mayor variación. La ruleta llegó a 454.471 y tuvo una desviación de 61.33, bastante mayor que las otras dos. Para este modelo, el elitismo produjo las soluciones más estables entre las cinco ejecuciones; lo conservamos para las siguientes pruebas.
+\subsubsection{Estudio del número de iteraciones}
+Con elitismo aumentamos las iteraciones y mantuvimos la mutación inicial.
+\begin{table}[!htbp]
+\centering\footnotesize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.08}
+\caption{Número de iteraciones en inventarios.}
+\label{tab:iteraciones-inventario}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+ID & Iter. & $t$ (s) & $f_{\min}$ & $\bar f$ & $s$ \\
+\midrule
+C44 & 10 & 0.02683 & 441.056 & 497.214 & 36.73 \\
+C45 & 20 & 0.05263 & 391.99 & 411.539 & 18.98 \\
+C46 & 30 & 0.07213 & 356.086 & 374.466 & 12.57 \\
+C47 & 50 & 0.1252 & 344.708 & 349.043 & 3.006 \\
+C48 & 100 & 0.2344 & 336.329 & 338.471 & 2.19 \\
+C49 & 150 & 0.3608 & 335.16 & 336.915 & 1.968 \\
+C50 & 200 & 0.4737 & 335.075 & 336.381 & 1.404 \\
+\bottomrule
+\end{tabular}
+\end{table}
+El promedio pasó de 497.214 con 10 iteraciones a 349.043 con 50. Al continuar hasta 200 llegó a 336.381, y la desviación bajó de 36.73 a 1.404. A diferencia del viajero, el modelo siguió mejorando, aunque las diferencias se hicieron menores al final.
+
+Escogimos 50 iteraciones porque su promedio queda un 3.76\% por encima del menor del estudio y cumple el margen establecido. Su tiempo medio fue 0.12516 segundos, frente a 0.473702 con 200. Esta elección favorece una ejecución más corta; no corresponde a la solución de menor objetivo de todo el estudio.
+\subsubsection{Análisis de la mutación}
+Para esta comparación usamos elitismo y 50 iteraciones. Después de modificar una variable se volvió a comprobar y reparar el presupuesto.
+\begin{table}[!htbp]
+\centering\footnotesize
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.08}
+\caption{Mutación en inventarios.}
+\label{tab:mutacion-inventario}
+\begin{tabular}{@{}llrrrr@{}}
+\toprule
+ID & $P_m/m$ & $t$ (s) & $f_{\min}$ & $\bar f$ & $s$ \\
+\midrule
+C51 & 0 / -- & 0.1195 & 387.019 & 396.256 & 10.98 \\
+C52 & 0.05 / 0.01 & 0.1157 & 360.644 & 374.39 & 8.378 \\
+C53 & 0.05 / 0.05 & 0.1157 & 359.44 & 368.295 & 5.842 \\
+C54 & 0.2 / 0.01 & 0.1216 & 354.183 & 369.454 & 13.77 \\
+C55 & 0.2 / 0.05 & 0.1287 & 344.708 & 349.043 & 3.006 \\
+C56 & 0.5 / 0.01 & 0.1394 & 346.179 & 356.076 & 6.999 \\
+C57 & 0.5 / 0.05 & 0.1344 & 337.877 & 345.451 & 5.9 \\
+C58 & 0.8 / 0.01 & 0.1324 & 350.299 & 359.294 & 8.813 \\
+C59 & 0.8 / 0.05 & 0.1315 & 340.78 & 344.345 & 3.002 \\
+\bottomrule
+\end{tabular}
+\end{table}
+Sin mutación el promedio fue 396.256. Con $P_m=0.80$ y $m=0.05$ obtuvimos 344.345, una reducción del 13.10\%, y una desviación de 3.002. Conservamos esa combinación por ser la de menor promedio. En este problema la magnitud de 0.05 superó a la de 0.01 para cada probabilidad comparada, al contrario de lo observado en Ackley.
+
+Los cambios de una variable pueden afectar otras durante la reparación: por ejemplo, modificar S cambia el monto disponible para Q. Por eso la probabilidad de mutación no se puede interpretar por separado de la magnitud y de la restricción de presupuesto.
+\subsubsection{Interpretación de una solución de inventarios}
+La mejor solución observada entre los estudios fue C50, con $Z=335.0750798642$. Se obtuvo con 200 iteraciones y $P_m=0.20$; no es la configuración final elegida por tiempo y promedio.
+Las variables de esa solución, en miles de COP, fueron:
+\begin{lstlisting}
+Q = [74.699 3096.973 3176.938 1308.874 1270.680]
+S = [35.918 1200 0 800 1500]
+K = [500 2000 5000 1500 3000]
+\end{lstlisting}
+Con los valores completos, $\sum Q_i/2=4464.081695$ y $\sum S_i=3535.918305$. La suma es 8000, por lo que la solución usa el presupuesto indicado. Los cinco valores de K quedaron en su límite superior. En este modelo, aumentar K eleva el punto $S+K$ y reduce la falta esperada, mientras que K no aparece en la igualdad del presupuesto. Esa estructura ayuda a explicar el resultado.
+
+La configuración final escogida, de 50 iteraciones y $P_m=0.80$, tuvo un mejor objetivo de 340.780 y un promedio de 344.345. Se trata de una alternativa más rápida que la corrida de C50. Ambas soluciones cumplen las restricciones; ninguna constituye una prueba del mínimo global del modelo.
+\section{Conclusiones}
+La implementación permitió completar el ciclo de población, evaluación, selección, cruce, mutación y reemplazo en los tres problemas. Los operadores se ajustaron a cada representación: OX e intercambio para las rutas, cruce aritmético para Ackley y cruce uniforme con reparación para inventarios.
+
+En las pruebas iniciales escogimos torneo para el viajero y elitismo para Ackley e inventarios. La mejor corrida individual no siempre perteneció al método con mejor promedio, por lo que fue útil repetir cada configuración cinco veces.
+
+Con el criterio de calidad y tiempo conservamos 30 iteraciones para viajero, 200 para Ackley y 50 para inventarios. Aumentar las iteraciones no tuvo el mismo efecto en todos los casos: el viajero dejó de mejorar en el estudio después de 100, mientras que Ackley e inventarios continuaron reduciendo su error u objetivo.
+
+La mutación mejoró los promedios respecto a no utilizarla. Sin embargo, la probabilidad de 0.80 empeoró el resultado del viajero y fue favorable en los casos continuos. Ackley respondió mejor a cambios pequeños, e inventarios a la mayor magnitud ensayada. Esto muestra por qué conviene estudiar la mutación para cada problema.
+
+Al aumentar las dimensiones de Ackley, el mismo algoritmo y los mismos parámetros perdieron precisión. Los resultados permiten identificar esa limitación y dejan como posible continuación ajustar la población, las iteraciones o la cantidad de coordenadas que se modifican. Las conclusiones corresponden a las configuraciones y cinco repeticiones realizadas; no establecen que un método sea siempre superior.
+
+\begin{thebibliography}{10}
+\bibitem{ref1} M. Mitchell, \textit{An Introduction to Genetic Algorithms}. Cambridge, MA, USA: MIT Press, 1998. \url{https://mitpress.mit.edu/9780262133166/an-introduction-to-genetic-algorithms/}.
+\bibitem{ref2} T. Blickle y L. Thiele, ``A Comparison of Selection Schemes Used in Genetic Algorithms'', ETH Zürich, Zürich, Suiza, TIK-Report 11, versión 2, dic. 1995. \url{https://tik-old.ee.ethz.ch/file/6c0e384dceb283cd4301339a895b72b8/TIK-Report11.pdf}.
+\bibitem{ref3} Z. Michalewicz, \textit{Genetic Algorithms + Data Structures = Evolution Programs}, 3.ª ed. Berlín, Alemania: Springer, 1996. doi: \url{https://doi.org/10.1007/978-3-662-03315-9}.
+\bibitem{ref4} P. Larrañaga, C. M. H. Kuijpers, R. H. Murga, I. Inza y S. Dizdarevic, ``Genetic Algorithms for the Travelling Salesman Problem: A Review of Representations and Operators'', \textit{Artificial Intelligence Review}, vol. 13, pp. 129--170, 1999. doi: \url{https://doi.org/10.1023/A:1006529012972}.
+\bibitem{ref5} D. H. Ackley, \textit{A Connectionist Machine for Genetic Hillclimbing}. Kluwer Academic Publishers, 1987. doi: \url{https://doi.org/10.1007/978-1-4613-1997-9}.
+\bibitem{ref6} E. A. Silver, D. F. Pyke y D. J. Thomas, \textit{Inventory and Production Management in Supply Chains}, 4.ª ed. CRC Press, 2017. \url{https://www.routledge.com/Inventory-and-Production-Management-in-Supply-Chains-Fourth-Edition/Silver-Pyke-Thomas/p/book/9781466558618}.
+\bibitem{ref7} G. Syswerda, ``Uniform Crossover in Genetic Algorithms'', en \textit{Proceedings of the Third International Conference on Genetic Algorithms}, J. D. Schaffer, ed. Morgan Kaufmann, 1989, pp. 2--9. \url{https://www.researchgate.net/publication/201976488_Uniform_Crossover_in_Genetic_Algorithms}.
+\bibitem{ref8} A. J. Pérez-Rodríguez, ``Guía de Práctica -- Optimización Metaheurística, Bioingeniería, Unidad 3, Universidad Católica de Oriente, 2026, material de clase.
+\bibitem{ref9} E. S. Gardner, Jr., y D. G. Dannenbring, ``Using Optimal Policy Surfaces to Analyze Aggregate Inventory Tradeoffs'', \textit{Management Science}, vol. 25, no. 8, pp. 709--720, 1979. doi: \url{https://doi.org/10.1287/mnsc.25.8.709}.
+\bibitem{ref10} C.-B. Chen, C. T. Lin, Y.-C. Ting y F.-K. Hsu, ``Genetic algorithm for multi-item inventory control problem'', \textit{Journal of Information \& Optimization Sciences}, vol. 29, no. 3, pp. 569--582, 2008. \url{https://connectjournals.com/file_full_text/56903H_jios277_569-582.pdf}.
+\end{thebibliography}
+
+\section*{Anexos digitales}
+Las funciones MATLAB y los archivos de resultados se encuentran en el repositorio:
+\begin{center}
+\url{https://github.com/Jeronimo521/algoritmos-geneticos-matlab}
+\end{center}
+La carpeta \texttt{matlab/} contiene las funciones objetivo, poblaciones, selección, cruces, mutaciones, restricciones, pruebas y ejecución de los estudios. El archivo \href{https://github.com/Jeronimo521/algoritmos-geneticos-matlab/blob/main/anexos/mejores_individuos.md}{\texttt{anexos/mejores\_individuos.md}} relaciona los identificadores C01 a C59 de las tablas con sus mejores soluciones. En inventarios, los vectores se presentan separados como Q, S y K. Los archivos \texttt{resumen\_completo.csv} y \texttt{corridas.csv}, en \texttt{resultados\_matlab/}, contienen las estadísticas y las cinco ejecuciones de cada configuración. El paquete de entrega incluye el informe y las funciones MATLAB como anexos de código. Para verificar los CSV publicados se ejecuta \texttt{verificarResultadosCSV}; para generar nuevamente los archivos MAT y las gráficas, se ejecuta primero \texttt{experimentos} y después \texttt{prepararResultados}.
+
+\clearpage
+\onecolumn
+\section*{Anexo: mejores individuos de las tablas}
+Cada identificador corresponde a una fila de resultados. Se presenta el individuo que produjo el menor objetivo entre las cinco repeticiones de esa configuración. Los vectores conservan la precisión almacenada en los CSV; en inventarios se añade $Q_5$ reconstruido a partir del presupuesto. Los montos están en miles de COP. Este anexo permite consultar las soluciones sin acceder a GitHub.
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true}
+
+\subsection*{C01 -- viajero}
+Objetivo: 417.
+\begin{lstlisting}
+[13 12 10 6 7 3 9 4 2 1 5 8 11]
+\end{lstlisting}
+
+\subsection*{C02 -- viajero}
+Objetivo: 418.
+\begin{lstlisting}
+[13 12 5 4 9 3 7 2 1 10 6 8 11]
+\end{lstlisting}
+
+\subsection*{C03 -- viajero}
+Objetivo: 451.
+\begin{lstlisting}
+[13 12 5 10 2 6 7 9 3 4 1 8 11]
+\end{lstlisting}
+
+\subsection*{C04 -- viajero}
+Objetivo: 471.
+\begin{lstlisting}
+[13 12 4 1 5 2 3 9 7 6 10 8 11]
+\end{lstlisting}
+
+\subsection*{C05 -- viajero}
+Objetivo: 427.
+\begin{lstlisting}
+[13 12 5 2 1 4 3 9 7 6 10 8 11]
+\end{lstlisting}
+
+\subsection*{C06 -- viajero}
+Objetivo: 427.
+\begin{lstlisting}
+[13 12 5 2 1 4 3 9 7 6 10 8 11]
+\end{lstlisting}
+
+\subsection*{C07 -- viajero}
+Objetivo: 418.
+\begin{lstlisting}
+[13 12 5 4 9 3 7 2 1 10 6 8 11]
+\end{lstlisting}
+
+\subsection*{C08 -- viajero}
+Objetivo: 418.
+\begin{lstlisting}
+[13 12 5 4 9 3 7 2 1 10 6 8 11]
+\end{lstlisting}
+
+\subsection*{C09 -- viajero}
+Objetivo: 418.
+\begin{lstlisting}
+[13 12 5 4 9 3 7 2 1 10 6 8 11]
+\end{lstlisting}
+
+\subsection*{C10 -- viajero}
+Objetivo: 418.
+\begin{lstlisting}
+[13 12 5 4 9 3 7 2 1 10 6 8 11]
+\end{lstlisting}
+
+\subsection*{C11 -- viajero}
+Objetivo: 435.
+\begin{lstlisting}
+[12 13 5 10 6 1 2 7 3 9 4 8 11]
+\end{lstlisting}
+
+\subsection*{C12 -- viajero}
+Objetivo: 440.
+\begin{lstlisting}
+[13 12 5 10 6 1 7 3 9 2 4 8 11]
+\end{lstlisting}
+
+\subsection*{C13 -- viajero}
+Objetivo: 427.
+\begin{lstlisting}
+[13 12 5 2 1 4 3 9 7 6 10 8 11]
+\end{lstlisting}
+
+\subsection*{C14 -- viajero}
+Objetivo: 426.
+\begin{lstlisting}
+[13 12 4 3 9 7 2 1 10 6 5 8 11]
+\end{lstlisting}
+
+\subsection*{C15 -- viajero}
+Objetivo: 445.
+\begin{lstlisting}
+[9 3 7 1 2 10 6 5 4 8 11 12 13]
+\end{lstlisting}
+
+\subsection*{C16 -- ackley}
+Objetivo: 0.282069287062.
+\begin{lstlisting}
+[-4.9704123268671147e-05 3.6268820166018541e-05 0.00013883657847789873]
+\end{lstlisting}
+
+\subsection*{C17 -- ackley}
+Objetivo: 0.281758643198.
+\begin{lstlisting}
+[-6.754507653783165e-06 -1.5546763742190889e-05 4.439438131351986e-06]
+\end{lstlisting}
+
+\subsection*{C18 -- ackley}
+Objetivo: 0.29180230136.
+\begin{lstlisting}
+[-0.0034777754814250025 0.0022631205578755908 0.00081763937645767254]
+\end{lstlisting}
+
+\subsection*{C19 -- ackley}
+Objetivo: 0.403557203062.
+\begin{lstlisting}
+[0.0008306224405516642 -0.0070650190753219939 0.039732122475064559]
+\end{lstlisting}
+
+\subsection*{C20 -- ackley}
+Objetivo: 0.283243231611.
+\begin{lstlisting}
+[0.00052457439512961683 -0.00030810360944584801 0.00024821551038878872]
+\end{lstlisting}
+
+\subsection*{C21 -- ackley}
+Objetivo: 0.282202226291.
+\begin{lstlisting}
+[-0.00011839063979431923 7.6488588432383105e-05 0.00015467736814349056]
+\end{lstlisting}
+
+\subsection*{C22 -- ackley}
+Objetivo: 0.282069947093.
+\begin{lstlisting}
+[-5.3011382072882207e-05 3.7226831426380758e-05 0.00013766685087072725]
+\end{lstlisting}
+
+\subsection*{C23 -- ackley}
+Objetivo: 0.282069287062.
+\begin{lstlisting}
+[-4.9704123268671147e-05 3.6268820166018541e-05 0.00013883657847789873]
+\end{lstlisting}
+
+\subsection*{C24 -- ackley}
+Objetivo: 0.282069287062.
+\begin{lstlisting}
+[-4.9704123268671147e-05 3.6268820166018541e-05 0.00013883657847789873]
+\end{lstlisting}
+
+\subsection*{C25 -- ackley}
+Objetivo: 0.282069287062.
+\begin{lstlisting}
+[-4.9704123268671147e-05 3.6268820166018541e-05 0.00013883657847789873]
+\end{lstlisting}
+
+\subsection*{C26 -- ackley}
+Objetivo: 0.282293463764.
+\begin{lstlisting}
+[-0.00021757689783212056 1.2424251790555211e-05 -0.00011968550469427975]
+\end{lstlisting}
+
+\subsection*{C27 -- ackley}
+Objetivo: 0.281718763982.
+\begin{lstlisting}
+[-1.913050378995486e-07 6.1077357928252378e-08 -1.5962998980378286e-07]
+\end{lstlisting}
+
+\subsection*{C28 -- ackley}
+Objetivo: 0.281933961026.
+\begin{lstlisting}
+[9.3372553892490941e-05 5.4588436127597419e-08 9.403560906511086e-12]
+\end{lstlisting}
+
+\subsection*{C29 -- ackley}
+Objetivo: 0.281828467861.
+\begin{lstlisting}
+[2.0877854211147742e-07 4.7713937805840216e-05 1.6287852698273278e-06]
+\end{lstlisting}
+
+\subsection*{C30 -- ackley}
+Objetivo: 0.282069287062.
+\begin{lstlisting}
+[-4.9704123268671147e-05 3.6268820166018541e-05 0.00013883657847789873]
+\end{lstlisting}
+
+\subsection*{C31 -- ackley}
+Objetivo: 0.281768310724.
+\begin{lstlisting}
+[6.9559224471816864e-06 -2.4042494802363393e-06 2.0421576057099757e-05]
+\end{lstlisting}
+
+\subsection*{C32 -- ackley}
+Objetivo: 0.282006272573.
+\begin{lstlisting}
+[-6.6325084802928825e-05 -0.00010550898190348909 -1.4050767244135157e-06]
+\end{lstlisting}
+
+\subsection*{C33 -- ackley}
+Objetivo: 0.281720358987.
+\begin{lstlisting}
+[-6.0875651485699407e-07 6.1334076846335708e-07 -3.8779886459783112e-07]
+\end{lstlisting}
+
+\subsection*{C34 -- ackley}
+Objetivo: 0.281763250207.
+\begin{lstlisting}
+[-1.7172264100976156e-05 -2.1122163479965342e-07 -9.2720321382233895e-06]
+\end{lstlisting}
+
+\subsection*{C35 -- ackley}
+Objetivo: 0.281718171544.
+\begin{lstlisting}
+[1.1229603861352381e-13 -9.8762546942488397e-13]
+\end{lstlisting}
+
+\subsection*{C36 -- ackley}
+Objetivo: 0.281720358987.
+\begin{lstlisting}
+[-6.0875651485699407e-07 6.1334076846335708e-07 -3.8779886459783112e-07]
+\end{lstlisting}
+
+\subsection*{C37 -- ackley}
+Objetivo: 0.287330937317.
+\begin{lstlisting}
+[0.0018440062866116294 0.0019288758951909505 0.00083927396521248966 -0.00060133460634902353
+-0.00092450077765558985 0.00080672683704942913 -0.0019774796759279918 0.0013426363269983721
+-0.0018187333493059924 0.00052263241562126601]
+\end{lstlisting}
+
+\subsection*{C38 -- ackley}
+Objetivo: 2.29215135022.
+\begin{lstlisting}
+[0.0019462011921532662 -0.27878629011787459 -0.93387282568205499 -0.92671314315920394
+-0.92418635764427814 -0.0051662841529124363 0.94390818766257856 -0.0096763019400499181
+-0.0037748133451042136 -0.0080664162602192488 -0.0070474763628448579 -0.0071175793173131191
+-0.007513565639742893 -0.0052222656552367089 0.0077724805667559096 0.0054695312817125592
+0.0015228515842441598 0.0061801432451849599 -0.0092988142491655552 -0.94279264059051604]
+\end{lstlisting}
+
+\subsection*{C39 -- ackley}
+Objetivo: 2.65357685331.
+\begin{lstlisting}
+[0.062742793472278902 0.90519771265998084 -0.90967915875109429 -0.99744818745837716
+-0.97582549720544254 0.069133220279713165 0.84031822133604095 0.8821169221698042
+-0.033308189545192511 -0.055196226339066963 -0.077729427877814117 0.037133819210412145
+-0.045312980339621993 -0.054684943522037462 -0.059819098522512423 -0.051609424062269607
+-0.079003309831023133 -0.04599027185922247 0.95316894051354806 0.051141339287441884
+0.93924271631411294 0.013736326021973565 -0.02681647432010334 -0.87753507802664454
+-0.90393823451565081 -0.020339440350772051 -0.94186925102686536 -0.013236377691313417
+0.050601351442745149 -0.013086876119473505 0.96747210678656825 -0.89653863232416797
+0.016620790154052767 0.0036742244808166845 -0.97276976580790908 -0.018258177696833529
+-0.070037734839970972 -0.077218997193110886 0.87671671706003051 0.95228952961097013
+-0.033133789403643428 -0.93715769819703265 -0.019632190408741125 0.87985438265884908
+-0.051091189933191027 -0.03929608410514316 -0.038235595202577785 0.0038696940715631468
+-0.041910687136175684 -0.87282668350691883]
+\end{lstlisting}
+
+\subsection*{C40 -- ackley}
+Objetivo: 3.6989730626.
+\begin{lstlisting}
+[0.79150262679857142 0.054222988175978828 0.12267567980951893 0.96484271536012078
+-0.72126284061777834 -0.73595543323635282 -0.070893463827826755 -0.080619555353124317
+-0.10420236443113846 0.09477696719530386 0.1104996315257232 -0.90759643187072458
+0.052805400316363361 -0.17175868574751368 -0.017523904703374386 0.86444276443740464
+0.10650151268517351 -0.89583478420685902 -0.051508812664458163 0.0070850490536686333
+0.10435947490065976 0.10800081061616831 -1.1011170792642437 0.76932209819818509
+1.8890313396028886 0.90616059638698332 0.043941434944227011 -0.18440607875252182
+-1.0595793991336082 -0.18344220882783033 0.077964046802455042 -0.97670885764403348
+0.90703444241500963 0.15943442206005998 -0.072597167132138235 0.0067254393584230288
+-1.9886774709813531 1.050679896001016 -0.08664899282064091 1.0142743200708175
+0.19196086414424349 0.60345763249575468 -0.18373304489221862 -1.0382134607182885
+-0.11999222261742305 0.97417130692943354 -0.14068523146677991 0.18696311611651401
+0.14563802505805248 0.056051090083474961 0.092156597959907618 -0.79999153576243842
+-0.035210901575112349 -0.12294319401374504 0.83320842933100558 1.5116392124995057
+-0.12000569888110879 0.15859002502267516 0.94039297791672838 -0.045266857094524104
+0.72865338660094225 -0.97418680381288714 -0.81678119344321054 0.68700175551728393
+0.94122807665869401 0.10644438771309485 0.74024825961288776 -0.79479328525742488
+0.13753655695858027 -0.14517665513740097 0.069235349088115267 0.083152669241912627
+-0.023605056191775328 0.085514740151250476 -0.82924802793657026 0.86819781962249376
+0.90208155506112009 0.86958041098091288 1.0936077569258198 -1.0846505332824969
+0.91424844434501717 1.0733338759968227 0.14613814256878341 0.12561450431728541 1.128516331601187
+-1.8574755651387345 0.0035518197830378528 -0.83920501990388985 -0.068933597268590233
+-0.051522968833697037 0.11201512376308803 1.2817974762303344 -0.02973560448249692
+-0.88463552405136237 -1.0373904594948673 0.037205718919495791 0.015979579857649091
+-1.2062204880801874 0.85155469069741752 0.13132935578597274]
+\end{lstlisting}
+
+\subsection*{C41 -- inventario}
+Objetivo: 336.329282305.
+\begin{lstlisting}
+Q = [117.93757714073526 3196.1540309095908 3111.7471882583031 1360.9743912559702
+1173.3233230191945]
+S = [29.311238687853447 1200 0 800 1490.6205060202492]
+K = [500 2000 5000 1500 3000]
+\end{lstlisting}
+
+\subsection*{C42 -- inventario}
+Objetivo: 337.399808516.
+\begin{lstlisting}
+Q = [34.365281326559625 3336.6697354392113 3161.6943095467082 1294.7496655541374
+1335.3336964730888]
+S = [63.831254977095682 1070.0781208242302 0 800 1484.6842800288211]
+K = [500 2000 5000 1500 3000]
+\end{lstlisting}
+
+\subsection*{C43 -- inventario}
+Objetivo: 402.376527262.
+\begin{lstlisting}
+Q = [208.83964038903059 2557.7883903107149 3445.9539957837515 1595.8185916345578
+2269.5978523064814]
+S = [121.23980159196002 1094.8243256284682 79.977151339474531 535.73807038620953
+1129.2214158416195]
+K = [299.91049195044741 2000 4956.9704333968702 1490.3231883551136 2881.170910655745]
+\end{lstlisting}
+
+\subsection*{C44 -- inventario}
+Objetivo: 441.055505393.
+\begin{lstlisting}
+Q = [407.68807752892388 3927.0156779270897 2849.4097549664771 1846.9128791955229
+2068.9667011275433]
+S = [53.19373376235017 180.11402511555721 618.80691143723914 639.73070466780518
+958.15807964427017]
+K = [476.71144928840749 1688.4467000135987 4718.5363984062324 1470.256476457504
+2953.9232775276164]
+\end{lstlisting}
+
+\subsection*{C45 -- inventario}
+Objetivo: 391.989659552.
+\begin{lstlisting}
+Q = [215.05477929199643 2430.9422743497053 2908.0875227032216 2182.6673114378646
+1509.5626359531761]
+S = [60.727820496366867 1173.9730983096085 354.55378583936636 597.99770360146113
+1189.5903298852147]
+K = [461.33093832937681 1973.7731777606816 5000 1459.8140276037529 2917.5662829979656]
+\end{lstlisting}
+
+\subsection*{C46 -- inventario}
+Objetivo: 356.086269815.
+\begin{lstlisting}
+Q = [215.05477929199643 2716.0451334778763 2908.0875227032216 1701.1917154188061
+1633.0909009787993]
+S = [60.727820496366867 1173.9730983096085 95.858739786736493 750.11438936663126
+1332.5909261053077]
+K = [461.33093832937681 1973.7731777606816 5000 1500 3000]
+\end{lstlisting}
+
+\subsection*{C47 -- inventario}
+Objetivo: 344.707590616.
+\begin{lstlisting}
+Q = [125.89293537915242 3142.6070183385955 2908.0875227032216 1595.1723831428474
+1304.0835480463384]
+S = [46.870811890720354 1173.9730983096085 81.472308618616864 750.11438936663126
+1409.6476880093451]
+K = [476.49795775055225 2000 5000 1500 3000]
+\end{lstlisting}
+
+\subsection*{C48 -- inventario}
+Objetivo: 336.329282305.
+\begin{lstlisting}
+Q = [117.93757714073526 3196.1540309095908 3111.7471882583031 1360.9743912559702
+1173.3233230191945]
+S = [29.311238687853447 1200 0 800 1490.6205060202492]
+K = [500 2000 5000 1500 3000]
+\end{lstlisting}
+
+\subsection*{C49 -- inventario}
+Objetivo: 335.160174441.
+\begin{lstlisting}
+Q = [74.698969777601747 3064.0610321826293 3176.9375891536483 1360.9743912559702
+1258.7126648898775]
+S = [32.307676370136399 1200 0 800 1500]
+K = [500 2000 5000 1500 3000]
+\end{lstlisting}
+
+\subsection*{C50 -- inventario}
+Objetivo: 335.075079864.
+\begin{lstlisting}
+Q = [74.698969777601747 3096.9730973903424 3176.9375891536483 1308.8737864442426
+1270.6799480068512]
+S = [35.918304613656169 1200 0 800 1500]
+K = [500 2000 5000 1500 3000]
+\end{lstlisting}
+
+\subsection*{C51 -- inventario}
+Objetivo: 387.018889675.
+\begin{lstlisting}
+Q = [82.498823490742197 3239.0962801343521 3248.0315584257141 1592.9462072173289
+1740.5285666003247]
+S = [66.501994493948359 931.34211995774638 86.225339252399834 798.71006462931723
+1165.6697637323566]
+K = [493.67526372744726 1941.1192303130908 4721.8766682282831 1453.4053648025217
+2818.7577043064953]
+\end{lstlisting}
+
+\subsection*{C52 -- inventario}
+Objetivo: 360.644322627.
+\begin{lstlisting}
+Q = [137.36220966493758 4160.0045767627762 3456.9392687168897 1300.2329977895927
+1517.6273779725088]
+S = [84.472038991975367 409.37528083332847 0 795.76064445432246 1424.3088202670203]
+K = [422.91389515198631 1964.6662051126091 4960.6161383573144 1497.1558284653038
+2953.9232775276164]
+\end{lstlisting}
+
+\subsection*{C53 -- inventario}
+Objetivo: 359.439566008.
+\begin{lstlisting}
+Q = [137.08031580623606 3927.0156779270897 3456.9392687168897 1442.7574782644463
+1842.7826059928193]
+S = [84.472038991975367 666.06237621272942 12.764679451021943 800 1033.4132319905329]
+K = [476.71144928840749 2000 5000 1487.8606437493154 2953.9232775276164]
+\end{lstlisting}
+
+\subsection*{C54 -- inventario}
+Objetivo: 354.182567797.
+\begin{lstlisting}
+Q = [56.056129949273512 3093.7612236979212 2908.0875227032216 1590.3820157065923
+1651.1664575083696]
+S = [78.240282386247898 1151.1534001909483 168.5272980776154 755.59210884010065
+1196.7602357223986]
+K = [464.36434221361191 2000 5000 1459.8140276037529 2999.9967943280935]
+\end{lstlisting}
+
+\subsection*{C55 -- inventario}
+Objetivo: 344.707590616.
+\begin{lstlisting}
+Q = [125.89293537915242 3142.6070183385955 2908.0875227032216 1595.1723831428474
+1304.0835480463384]
+S = [46.870811890720354 1173.9730983096085 81.472308618616864 750.11438936663126
+1409.6476880093451]
+K = [476.49795775055225 2000 5000 1500 3000]
+\end{lstlisting}
+
+\subsection*{C56 -- inventario}
+Objetivo: 346.179268882.
+\begin{lstlisting}
+Q = [47.211357576449657 3239.0962801343521 2769.0878532232605 1612.7042849146048
+1359.784753313982]
+S = [67.050985993175075 1176.9376041324304 11.286500737862195 800 1430.7826445552078]
+K = [493.27667797542273 1994.8222075378649 5000 1453.4053648025217 3000]
+\end{lstlisting}
+
+\subsection*{C57 -- inventario}
+Objetivo: 337.877198759.
+\begin{lstlisting}
+Q = [59.848308872635648 3197.2170980446917 3309.1737048459822 1221.5927766269442
+1355.4819937880984]
+S = [67.412160801000852 1163.0687663672245 0 800 1397.8621317425984]
+K = [484.85764190465835 2000 5000 1500 3000]
+\end{lstlisting}
+
+\subsection*{C58 -- inventario}
+Objetivo: 350.299405888.
+\begin{lstlisting}
+Q = [119.53516476542517 3154.14388165319 2885.4623355209801 1480.3904127469971
+1195.1250524213483]
+S = [34.47751066515962 1128.335444835029 231.27325656959769 701.97850189169321
+1486.6068624845507]
+K = [496.06915882933475 2000 5000 1495.6249431291983 2988.2535108648212]
+\end{lstlisting}
+
+\subsection*{C59 -- inventario}
+Objetivo: 340.780032016.
+\begin{lstlisting}
+Q = [101.70172556076841 3401.0693181528982 3108.4612203764518 1269.9930918505054
+1659.3273430465906]
+S = [53.397986333607527 1174.8371591150958 0 786.05472756142876 1215.4337774962607]
+K = [500 2000 5000 1500 3000]
+\end{lstlisting}
+
+\end{document}

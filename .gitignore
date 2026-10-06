@@ -1,0 +1,9 @@
+*.asv
+*.m~
+resultados_matlab/*.mat
+resultados_matlab/*.json
+resultados_matlab/graficas/
+!resultados_matlab/graficas/
+resultados_matlab/graficas/*
+!resultados_matlab/graficas/*.png
+verificacion/

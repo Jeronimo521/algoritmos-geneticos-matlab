@@ -1,0 +1,20 @@
+function cfg = configuracion()
+cfg.poblacion = 100;
+cfg.iteraciones = 100;
+cfg.dimensiones = 3;
+cfg.seleccion = 'elitismo';
+cfg.pm = 0.20;
+cfg.magnitud = 0.05;
+cfg.semilla = 20261005;
+cfg.repeticiones = 5;
+cfg.grupoTorneo = 4;
+cfg.regresoUCO = false;
+cfg.fijarInicioUCO = false;
+cfg.limitesAckley = [-10 10];
+cfg.iteracionesPrueba = [10 20 30 50 100 150 200];
+cfg.pmPrueba = [0 0.05 0.20 0.50 0.80];
+cfg.magnitudPrueba = [0.01 0.05];
+cfg.dimensionesPrueba = [2 3 10 20 50 100];
+cfg.validarFases = true;
+cfg.calentamiento = true;
+end

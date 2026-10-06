@@ -1,0 +1,4 @@
+id,estudio,problema,seleccion,iteraciones,dimensiones,pm,magnitud,pruebas,tiempo_medio_s,tiempo_desviacion_s,mejor,media,desviacion,rmse,individuo
+C01,seleccion,viajero,elitismo,100,3,0.2,0.05,5,0.16149164,0.0191877991216554,417,431.4,9.12688336728371,NaN,[13 12 10 6 7 3 9 4 2 1 5 8 11]
+C02,seleccion,viajero,torneo,100,3,0.2,0.05,5,0.15944028,0.0159725547202694,418,427.8,7.42967024840268,NaN,[13 12 5 4 9 3 7 2 1 10 6 8 11]
+C03,seleccion,viajero,ruleta,100,3,0.2,0.05,5,0.14363512,0.00437303368464045,451,485,24.688053791257,NaN,[13 12 5 10 2 6 7 9 3 4 1 8 11]
