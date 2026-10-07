@@ -281,7 +281,7 @@ C25 & 200 & 0.0908 & 0.282069 & 0.284085 & 0.001872 & 0.002899 \\
 \bottomrule
 \end{tabular}
 \end{table}
-De 10 a 20 iteraciones el RMSE bajó de 0.6162 a 0.01014. Después la mejora fue más lenta, pero continuó hasta llegar a 0.002899 con 200 iteraciones. El RMSE de 150 iteraciones, 0.003147, queda por encima del margen del 5\% respecto al menor. Por eso escogimos 200 iteraciones. En este caso fue necesario usar la mayor cantidad ensayada para cumplir el criterio, con un tiempo medio de 0.0908017 segundos.
+De 10 a 20 iteraciones el RMSE bajó de 0.6162 a 0.01014. Después continuó mejorando hasta 0.002899 con 200 iteraciones. Con 150 fue 0.003147: la diferencia absoluta de aproximadamente 0.000248 equivale al 8.6\% del menor RMSE y supera el margen del 5\%, cuyo límite es 0.003044. Por eso escogimos 200 iteraciones, con un tiempo medio de 0.0908017 segundos. Las 150 ofrecen un resultado cercano en términos absolutos; la elección de 200 responde al criterio relativo establecido.
 \subsubsection{Análisis de la mutación}
 En esta etapa conservamos elitismo y 200 iteraciones. Comparamos tanto la probabilidad como el tamaño de la perturbación.
 \begin{table}[!htbp]
@@ -372,6 +372,8 @@ C43 & ruleta & 0.2548 & 402.377 & 454.471 & 61.33 \\
 \end{tabular}
 \end{table}
 El elitismo obtuvo el menor promedio, 338.471, y una desviación de 2.190. El torneo dio un promedio cercano, 342.191, con mayor variación. La ruleta llegó a 454.471 y tuvo una desviación de 61.33, bastante mayor que las otras dos. Para este modelo, el elitismo produjo las soluciones más estables entre las cinco ejecuciones; lo conservamos para las siguientes pruebas.
+
+La ruleta tuvo el mayor promedio en los tres problemas. Si los objetivos son cercanos, sus probabilidades proporcionales a $1/f$ también lo son, lo que puede reducir la presión de selección. Esta es una explicación probable del resultado observado, cuya causa no se aisló experimentalmente.
 \subsubsection{Estudio del número de iteraciones}
 Con elitismo aumentamos las iteraciones y mantuvimos la mutación inicial.
 \begin{table}[!htbp]
